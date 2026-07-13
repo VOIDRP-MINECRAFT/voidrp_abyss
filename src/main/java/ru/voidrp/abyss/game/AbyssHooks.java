@@ -1,10 +1,16 @@
 package ru.voidrp.abyss.game;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -35,11 +41,41 @@ public final class AbyssHooks {
             if (killer != null && killer != deadPlayer) {
                 VoidRpAbyss.stats().addPvpKill(killer);
                 tryClaimBounty(deadPlayer, killer);
+                if (VoidRpAbyss.config().headDrops()) {
+                    dropHead(deadPlayer);
+                }
+                postKillEvent(deadPlayer, killer);
             }
         } else if (killer != null) {
             // A player killed a non-player living entity → mob kill.
             VoidRpAbyss.stats().addMobKill(killer);
         }
+    }
+
+    /** Drops the victim's head (a player skull carrying their skin) as a trophy. */
+    private static void dropHead(ServerPlayer victim) {
+        ItemStack head = new ItemStack(Items.PLAYER_HEAD);
+        head.set(DataComponents.PROFILE, ResolvableProfile.createResolved(victim.getGameProfile()));
+        Block.popResource(victim.level(), victim.blockPosition(), head);
+    }
+
+    /** Records the PvP kill in the public killfeed (fire-and-forget). */
+    private static void postKillEvent(ServerPlayer victim, ServerPlayer killer) {
+        String weapon = weaponId(killer);
+        VoidRpAbyss.backend()
+                .postKillEventAsync(killer.getGameProfile().name(), victim.getGameProfile().name(), weapon)
+                .exceptionally(ex -> {
+                    VoidRpAbyss.LOGGER.warn("Kill-event post failed: {}", ex.getMessage());
+                    return null;
+                });
+    }
+
+    private static String weaponId(ServerPlayer p) {
+        ItemStack held = p.getMainHandItem();
+        if (held.isEmpty()) {
+            return "";
+        }
+        return BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
     }
 
     private static void sendDeathCoords(ServerPlayer player) {

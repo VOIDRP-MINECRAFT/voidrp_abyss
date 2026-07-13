@@ -39,4 +39,11 @@ public final class AbyssDtos {
 
     public record PlayerStatsBatchResponse(boolean ok, int updated) {
     }
+
+    // ── killfeed ─────────────────────────────────────────────────────────
+    public record KillEventRequest(String killerNick, String victimNick, String weapon, String kind) {
+    }
+
+    public record KillEventResponse(boolean ok) {
+    }
 }

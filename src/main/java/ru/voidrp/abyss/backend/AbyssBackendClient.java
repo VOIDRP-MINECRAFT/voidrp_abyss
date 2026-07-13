@@ -15,6 +15,8 @@ import ru.voidrp.abyss.backend.AbyssDtos.BountyActionResponse;
 import ru.voidrp.abyss.backend.AbyssDtos.BountyBoardResponse;
 import ru.voidrp.abyss.backend.AbyssDtos.BountyClaimRequest;
 import ru.voidrp.abyss.backend.AbyssDtos.BountyPlaceRequest;
+import ru.voidrp.abyss.backend.AbyssDtos.KillEventRequest;
+import ru.voidrp.abyss.backend.AbyssDtos.KillEventResponse;
 import ru.voidrp.abyss.backend.AbyssDtos.PlayerStatDelta;
 import ru.voidrp.abyss.backend.AbyssDtos.PlayerStatsBatchRequest;
 import ru.voidrp.abyss.backend.AbyssDtos.PlayerStatsBatchResponse;
@@ -55,6 +57,11 @@ public final class AbyssBackendClient {
     public CompletableFuture<PlayerStatsBatchResponse> syncStatsAsync(List<PlayerStatDelta> players) {
         return sendAsync(jsonPost("/api/v1/game-sync/player-stats",
                 new PlayerStatsBatchRequest(players)), PlayerStatsBatchResponse.class);
+    }
+
+    public CompletableFuture<KillEventResponse> postKillEventAsync(String killer, String victim, String weapon) {
+        return sendAsync(jsonPost("/api/v1/game-sync/kill-event",
+                new KillEventRequest(killer, victim, weapon, "pvp")), KillEventResponse.class);
     }
 
     // ── internals ────────────────────────────────────────────────────────

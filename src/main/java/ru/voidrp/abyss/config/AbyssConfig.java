@@ -16,14 +16,16 @@ public final class AbyssConfig {
     private final String serverSlug;
     private final int statFlushMinutes;
     private final boolean deathCoords;
+    private final boolean headDrops;
 
     private AbyssConfig(URI backendBaseUrl, String gameAuthSecret, String serverSlug,
-                        int statFlushMinutes, boolean deathCoords) {
+                        int statFlushMinutes, boolean deathCoords, boolean headDrops) {
         this.backendBaseUrl = backendBaseUrl;
         this.gameAuthSecret = gameAuthSecret;
         this.serverSlug = serverSlug;
         this.statFlushMinutes = statFlushMinutes;
         this.deathCoords = deathCoords;
+        this.headDrops = headDrops;
     }
 
     public static AbyssConfig load() {
@@ -32,7 +34,8 @@ public final class AbyssConfig {
         String slug = prop("voidrp.abyss.serverSlug", "");
         int flush = intProp("voidrp.abyss.statFlushMinutes", 3);
         boolean death = boolProp("voidrp.abyss.deathCoords", true);
-        return new AbyssConfig(URI.create(backend), secret, slug, Math.max(1, flush), death);
+        boolean heads = boolProp("voidrp.abyss.headDrops", true);
+        return new AbyssConfig(URI.create(backend), secret, slug, Math.max(1, flush), death, heads);
     }
 
     private static String prop(String key, String def) {
@@ -72,5 +75,9 @@ public final class AbyssConfig {
 
     public boolean deathCoords() {
         return deathCoords;
+    }
+
+    public boolean headDrops() {
+        return headDrops;
     }
 }
