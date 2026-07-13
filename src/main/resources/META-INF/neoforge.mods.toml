@@ -10,6 +10,9 @@ displayName="${mod_name}"
 displayURL="${mod_display_url}"
 authors="${mod_authors}"
 description='''${mod_description}'''
+# Server-side only: no client content. IGNORE_ALL_VERSION keeps vanilla / mod-less
+# clients able to connect without this mod installed.
+displayTest="IGNORE_ALL_VERSION"
 
 [[dependencies.${mod_id}]]
 modId="neoforge"
