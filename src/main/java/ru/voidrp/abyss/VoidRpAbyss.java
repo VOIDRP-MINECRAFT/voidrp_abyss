@@ -9,6 +9,7 @@ import ru.voidrp.abyss.backend.AbyssBackendClient;
 import ru.voidrp.abyss.command.BountyCommands;
 import ru.voidrp.abyss.config.AbyssConfig;
 import ru.voidrp.abyss.game.AbyssHooks;
+import ru.voidrp.abyss.game.CombatTracker;
 import ru.voidrp.abyss.stats.StatTracker;
 
 /** Abyss anarchy gameplay: death coordinates, kill/death/playtime stat sync,
@@ -22,6 +23,7 @@ public final class VoidRpAbyss {
     private static AbyssConfig config;
     private static AbyssBackendClient backend;
     private static final StatTracker STATS = new StatTracker();
+    private static final CombatTracker COMBAT = new CombatTracker();
 
     public VoidRpAbyss(IEventBus modBus) {
         config = AbyssConfig.load();
@@ -44,5 +46,9 @@ public final class VoidRpAbyss {
 
     public static StatTracker stats() {
         return STATS;
+    }
+
+    public static CombatTracker combat() {
+        return COMBAT;
     }
 }

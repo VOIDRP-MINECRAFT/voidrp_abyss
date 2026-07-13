@@ -4,7 +4,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -13,6 +15,7 @@ import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -34,12 +37,15 @@ public final class AbyssHooks {
         ServerPlayer killer = killerEntity instanceof ServerPlayer sp ? sp : null;
 
         if (victim instanceof ServerPlayer deadPlayer) {
+            // A death ends any combat tag and (inside StatTracker) resets the streak.
+            VoidRpAbyss.combat().clear(deadPlayer.getUUID());
             VoidRpAbyss.stats().addDeath(deadPlayer);
             if (VoidRpAbyss.config().deathCoords()) {
                 sendDeathCoords(deadPlayer);
             }
             if (killer != null && killer != deadPlayer) {
-                VoidRpAbyss.stats().addPvpKill(killer);
+                int streak = VoidRpAbyss.stats().addPvpKill(killer);
+                Notoriety.onKill(killer.level().getServer(), killer, streak);
                 tryClaimBounty(deadPlayer, killer);
                 if (VoidRpAbyss.config().headDrops()) {
                     dropHead(deadPlayer);
@@ -110,6 +116,35 @@ public final class AbyssHooks {
                 });
     }
 
+    /** Tags both fighters "in combat" so neither can safely log out mid-fight. */
+    @SubscribeEvent
+    public static void onIncomingDamage(LivingIncomingDamageEvent event) {
+        if (!VoidRpAbyss.config().combatLog()) {
+            return;
+        }
+        if (!(event.getEntity() instanceof ServerPlayer victim)) {
+            return;
+        }
+        Entity attackerEntity = event.getSource().getEntity();
+        if (!(attackerEntity instanceof ServerPlayer attacker) || attacker == victim) {
+            return;
+        }
+        if (isExempt(victim) || isExempt(attacker)) {
+            return;
+        }
+        int s = VoidRpAbyss.config().combatTagSeconds();
+        boolean newlyTagged = VoidRpAbyss.combat().tag(victim, attacker, s);
+        if (newlyTagged) {
+            Msg.to(victim, "§c⚔ Ты в бою! Выход из игры = смерть (" + s + " сек)");
+            Msg.to(attacker, "§c⚔ Ты в бою! Выход из игры = смерть (" + s + " сек)");
+        }
+    }
+
+    /** Creative/spectator players are never combat-tagged (staff). */
+    private static boolean isExempt(ServerPlayer p) {
+        return p.isCreative() || p.isSpectator();
+    }
+
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
@@ -120,7 +155,43 @@ public final class AbyssHooks {
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            // Punish combat logging BEFORE bookkeeping — the kill runs through the
+            // normal death path (loot drop, kill credit, head, killfeed, streak reset).
+            punishCombatLog(player);
             VoidRpAbyss.stats().onLeave(player);
+        }
+    }
+
+    /** If the leaving player is combat-tagged, execute them so their loot drops and
+     *  the last attacker is credited with the kill. Fires during PlayerLoggedOutEvent,
+     *  which NeoForge dispatches before the player is saved — so the dead, emptied
+     *  state is what persists (no item duplication). */
+    private static void punishCombatLog(ServerPlayer player) {
+        if (!VoidRpAbyss.config().combatLog() || isExempt(player) || !player.isAlive()) {
+            VoidRpAbyss.combat().clear(player.getUUID());
+            return;
+        }
+        CombatTracker.Tag tag = VoidRpAbyss.combat().consume(player.getUUID());
+        if (tag == null) {
+            return;
+        }
+        ServerLevel level = player.level();
+        MinecraftServer server = level.getServer();
+        ServerPlayer foe = server != null ? server.getPlayerList().getPlayer(tag.foeUuid()) : null;
+        DamageSource src = (foe != null && foe != player)
+                ? player.damageSources().playerAttack(foe)
+                : player.damageSources().genericKill();
+
+        player.hurtServer(level, src, Float.MAX_VALUE);
+        // Force death through even if a totem/absorption soaked the hit.
+        if (player.isAlive()) {
+            player.setHealth(0.0F);
+            player.die(src);
+        }
+        if (server != null) {
+            server.getPlayerList().broadcastSystemMessage(Msg.legacy(
+                    "§4☠ §f" + player.getGameProfile().name()
+                            + " §cтрусливо покинул бой и был казнён!"), false);
         }
     }
 

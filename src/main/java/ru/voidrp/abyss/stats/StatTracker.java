@@ -32,6 +32,8 @@ public final class StatTracker {
 
     /** key = nick lowercase */
     private final Map<String, Stat> pending = new HashMap<>();
+    /** persistent per-nick kill streak: [current, peakSinceFlush]. Survives flushes. */
+    private final Map<String, int[]> streaks = new HashMap<>();
     /** per-online-player timestamp up to which playtime has already been credited */
     private final Map<UUID, Long> accruedUntil = new HashMap<>();
     private final Map<UUID, String> nickByUuid = new HashMap<>();
@@ -42,8 +44,13 @@ public final class StatTracker {
         return s;
     }
 
-    public void addPvpKill(ServerPlayer killer) {
+    /** Increments the killer's PvP kill streak and returns the new streak length. */
+    public int addPvpKill(ServerPlayer killer) {
         stat(key(killer), killer.getGameProfile().name()).pvpKills++;
+        int[] st = streaks.computeIfAbsent(key(killer), k -> new int[2]);
+        st[0]++;
+        st[1] = Math.max(st[1], st[0]);
+        return st[0];
     }
 
     public void addMobKill(ServerPlayer killer) {
@@ -52,6 +59,17 @@ public final class StatTracker {
 
     public void addDeath(ServerPlayer victim) {
         stat(key(victim), victim.getGameProfile().name()).deaths++;
+        // Any death breaks the streak (peak is kept until the next flush).
+        int[] st = streaks.get(key(victim));
+        if (st != null) {
+            st[0] = 0;
+        }
+    }
+
+    /** Current PvP kill streak for a nick (0 if none). */
+    public int killStreak(String nickLower) {
+        int[] st = streaks.get(nickLower);
+        return st == null ? 0 : st[0];
     }
 
     public void onJoin(ServerPlayer player) {
@@ -90,7 +108,20 @@ public final class StatTracker {
         List<PlayerStatDelta> batch = new ArrayList<>();
         for (Stat s : pending.values()) {
             if (!s.isEmpty()) {
-                batch.add(new PlayerStatDelta(s.nick, s.pvpKills, s.mobKills, s.deaths, s.playtimeMinutes));
+                String nickLower = s.nick.toLowerCase(Locale.ROOT);
+                int[] st = streaks.get(nickLower);
+                int current = st == null ? 0 : st[0];
+                int peak = st == null ? 0 : st[1];
+                batch.add(new PlayerStatDelta(
+                        s.nick, s.pvpKills, s.mobKills, s.deaths, s.playtimeMinutes, current, peak));
+                // Peak resets to the current streak for the next window; drop dead entries.
+                if (st != null) {
+                    if (st[0] == 0) {
+                        streaks.remove(nickLower);
+                    } else {
+                        st[1] = st[0];
+                    }
+                }
             }
         }
         pending.clear();

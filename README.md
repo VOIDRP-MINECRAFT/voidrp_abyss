@@ -16,8 +16,16 @@ connect. Reuses the auth-bridge game secret, so no extra systemd flags are neede
   diamonds. Self-bounties and suicides never pay out. `/bounty list` shows the board.
 - **Head trophies** — a PvP kill drops the victim's player head (with their skin) as a
   trophy / proof of the kill.
+- **No combat logging** — hitting or being hit by another player tags both "in combat"
+  for a few seconds; disconnecting while tagged executes the player (loot drops, the
+  last attacker is credited with the kill). NeoForge fires the logout event *before* the
+  player is saved, so the dead/emptied state persists — no item duplication.
+- **Notoriety / "wanted"** — a long PvP kill streak makes a player wanted: the server
+  puts a growing, self-funded bounty on their head and announces it. Dying resets the
+  streak and pays the reward to the killer (via the normal bounty claim). Current/best
+  streaks sync to the site leaderboard; wanted targets are flagged on the bounty board.
 - **Kill / death / playtime stats** — accumulated per player and flushed to the backend
-  (`player_stat_cache`), feeding the site leaderboard.
+  (`player_stat_cache`), feeding the site leaderboard (incl. K/D and best kill streak).
 - **Killfeed** — every PvP kill is posted to the backend and shown in the live "Abyss
   Pulse" feed on the site (who killed whom + weapon — never coordinates).
 
@@ -43,6 +51,12 @@ Reuses the auth-bridge secret/backend by default (no extra flags needed):
 | `voidrp.abyss.statFlushMinutes` | `3` |
 | `voidrp.abyss.deathCoords` | `true` |
 | `voidrp.abyss.headDrops` | `true` |
+| `voidrp.abyss.combatLog` | `true` (punish combat logging) |
+| `voidrp.abyss.combatTagSeconds` | `20` |
+| `voidrp.abyss.notoriety` | `true` (wanted system) |
+| `voidrp.abyss.notorietyThreshold` | `5` (kills before wanted) |
+| `voidrp.abyss.notorietyBaseReward` | `4` (diamonds at threshold) |
+| `voidrp.abyss.notorietyStepReward` | `2` (diamonds per further kill) |
 
 ## Commands
 

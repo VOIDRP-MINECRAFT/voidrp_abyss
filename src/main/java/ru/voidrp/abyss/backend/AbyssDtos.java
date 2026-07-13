@@ -10,7 +10,7 @@ public final class AbyssDtos {
     }
 
     // ── bounties ─────────────────────────────────────────────────────────
-    public record BountyPlaceRequest(String targetNick, String placedByNick, int amount) {
+    public record BountyPlaceRequest(String targetNick, String placedByNick, int amount, String source) {
     }
 
     public record BountyClaimRequest(String targetNick, String killerNick) {
@@ -19,7 +19,8 @@ public final class AbyssDtos {
     public record BountyActionResponse(boolean ok, String error, int totalAmount) {
     }
 
-    public record BountyBoardEntry(String targetNick, int totalAmount, int contributorCount, String lastUpdated) {
+    public record BountyBoardEntry(String targetNick, int totalAmount, int contributorCount,
+                                   String lastUpdated, boolean isWanted) {
     }
 
     public record BountyBoardResponse(List<BountyBoardEntry> bounties) {
@@ -31,7 +32,9 @@ public final class AbyssDtos {
             int pvpKills,
             int mobKills,
             int deaths,
-            int playtimeMinutes) {
+            int playtimeMinutes,
+            int killStreak,
+            int maxKillStreak) {
     }
 
     public record PlayerStatsBatchRequest(List<PlayerStatDelta> players) {

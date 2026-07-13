@@ -41,8 +41,13 @@ public final class AbyssBackendClient {
     }
 
     public CompletableFuture<BountyActionResponse> placeBountyAsync(String target, String placedBy, int amount) {
+        return placeBountyAsync(target, placedBy, amount, "player");
+    }
+
+    public CompletableFuture<BountyActionResponse> placeBountyAsync(
+            String target, String placedBy, int amount, String source) {
         return sendAsync(jsonPost("/api/v1/bounties/place",
-                new BountyPlaceRequest(target, placedBy, amount)), BountyActionResponse.class);
+                new BountyPlaceRequest(target, placedBy, amount, source)), BountyActionResponse.class);
     }
 
     public CompletableFuture<BountyActionResponse> claimBountyAsync(String target, String killer) {
